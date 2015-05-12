@@ -59,7 +59,61 @@ var app = express();
 
 通过源码，可以得知，初始化的时候，主要是初始化`cache`，`settings`，`engines`，并调用`defaultConfiguration`函数进行默认配置。
 
-### 3. settings相关
+### 3. app.listen
+
+在不使用框架的时候，我们可以通过如下方式创建一个服务器：
+
+```javascript
+var http = require('http');
+
+http.createServer(function(req, res) {
+        res.write('hello world');
+        res.end();
+    })
+    .listen(8000);
+```
+
+下面来看`app.listen`方法：
+
+```javascript
+/**
+ * Listen for connections.
+ *
+ * A node `http.Server` is returned, with this
+ * application (which is a `Function`) as its
+ * callback. If you wish to create both an HTTP
+ * and HTTPS server you may do so with the "http"
+ * and "https" modules as shown here:
+ *
+ *    var http = require('http')
+ *      , https = require('https')
+ *      , express = require('express')
+ *      , app = express();
+ *
+ *    http.createServer(app).listen(80);
+ *    https.createServer({ ... }, app).listen(443);
+ *
+ * @return {http.Server}
+ * @api public
+ */
+
+app.listen = function(){
+  var server = http.createServer(this);
+  return server.listen.apply(server, arguments);
+};
+```
+
+注意，在该模块中，`app`只是一个对象字面量，而在使用express进行开发的时候，`app`事实上是一个函数，该函数在express.js的`createApplication`方法中定义。如下所示：
+
+```javascript
+var app = function(req, res, next) {
+  app.handle(req, res, next);
+};
+```
+
+正因为如此，在源码中会有`http.createServer(this)`。所以，所有的HTTP请求，事实上都是交给`app`函数去处理了。而`app`函数的执行则是又调用了它的`handle`方法。
+
+### 4. settings相关
 
 `app`的`settings`属性为一个对象字面量，因此以键值对的形式保存着一系列设置信息。首先来看`set`方法：
 
