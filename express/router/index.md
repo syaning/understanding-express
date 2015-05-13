@@ -94,3 +94,163 @@ var router2 = new Router();
 	- `stack`
 
 在`application.js`中的`lazyrouter`中，正是通过`new Router({...})`来生成了`app._router`。
+
+### 3. `proto.use`
+
+该方法代码如下：
+
+```javascript
+/**
+ * Use the given middleware function, with optional path, defaulting to "/".
+ *
+ * Use (like `.all`) will run for any http METHOD, but it will not add
+ * handlers for those methods so OPTIONS requests will not consider `.use`
+ * functions even if they could respond.
+ *
+ * The other difference is that _route_ path is stripped and not visible
+ * to the handler function. The main effect of this feature is that mounted
+ * handlers can operate without any code changes regardless of the "prefix"
+ * pathname.
+ *
+ * @api public
+ */
+
+proto.use = function use(fn) {
+  var offset = 0;
+  var path = '/';
+
+  // default path to '/'
+  // disambiguate router.use([fn])
+  if (typeof fn !== 'function') {
+    var arg = fn;
+
+    while (Array.isArray(arg) && arg.length !== 0) {
+      arg = arg[0];
+    }
+
+    // first arg is the path
+    if (typeof arg !== 'function') {
+      offset = 1;
+      path = fn;
+    }
+  }
+
+  var callbacks = utils.flatten(slice.call(arguments, offset));
+
+  if (callbacks.length === 0) {
+    throw new TypeError('Router.use() requires middleware functions');
+  }
+
+  callbacks.forEach(function (fn) {
+    if (typeof fn !== 'function') {
+      throw new TypeError('Router.use() requires middleware function but got a ' + gettype(fn));
+    }
+
+    // add the middleware
+    debug('use %s %s', path, fn.name || '<anonymous>');
+
+    var layer = new Layer(path, {
+      sensitive: this.caseSensitive,
+      strict: false,
+      end: false
+    }, fn);
+
+    layer.route = undefined;
+
+    this.stack.push(layer);
+  }, this);
+
+  return this;
+};
+```
+
+该方法的思路如下：
+
+- 首先定义局部变量`offset`和`path`：
+	- `offset`：表示从第几个参数开始为中间件函数，默认为0
+	- `path`：路径，默认为`/`
+- 当第一个参数不为函数的时候：
+	- `while`循环中是针对第一个参数为数组的情况，即`[fn]`，`[[fn]]`等情况，此时让局部变量`arg`为数组或多层数组的第一项
+	- 如果`arg`不为函数，则认为第一个参数为字符串，并将其赋值给`path`，同时设置`offset`为`1`
+- 获取参数中的`offset`下标开始的所有参数，并进行扁平化操作，赋值给`callbacks`，即代表所有的中间件函数
+- 如果没有中间件函数，则抛出错误
+- 对`callbacks`进行`forEach`操作，即对于每个中间件函数：
+	- 如果它不是一个函数，则报错
+	- 如果是一个函数，则使用`path`和该函数构建一个`layer`对象，并加到`this.stack`中
+- 返回该对象，从而可以进行链式操作
+
+归结起来，该方法其实就是向`this.stack`数组中添加`layer`对象，`layer`是`router/layer.js`的导出对象的实例。
+
+看如下例子：
+
+```javascript
+var express = require('express');
+var app = express();
+
+app.use(function foo() {});
+app.use('/users', function bar() {}, function test() {});
+
+console.log(app._router);
+```
+
+输出结果为：
+
+```javascript
+[{
+	handle: [Function: query],
+	name: 'query',
+	params: undefined,
+	path: undefined,
+	keys: [],
+	regexp: {
+		/^\/?(?=\/|$)/i
+		fast_slash: true
+	},
+	route: undefined
+}, {
+	handle: [Function: expressInit],
+	name: 'expressInit',
+	params: undefined,
+	path: undefined,
+	keys: [],
+	regexp: {
+		/^\/?(?=\/|$)/i
+		fast_slash: true
+	},
+	route: undefined
+}, {
+	handle: [Function: foo],
+	name: 'foo',
+	params: undefined,
+	path: undefined,
+	keys: [],
+	regexp: {
+		/^\/?(?=\/|$)/i
+		fast_slash: true
+	},
+	route: undefined
+}, {
+	handle: [Function: bar],
+	name: 'bar',
+	params: undefined,
+	path: undefined,
+	keys: [],
+	regexp: /^\/users\/?(?=\/|$)/i,
+	route: undefined
+}, {
+	handle: [Function: test],
+	name: 'test',
+	params: undefined,
+	path: undefined,
+	keys: [],
+	regexp: /^\/users\/?(?=\/|$)/i,
+	route: undefined
+}]
+```
+
+其中数组中的前两项，是因为在`application.js`的`lazyrouter`方法中，初始化`app._router`的时候，有如下代码：
+
+```javascript
+this._router.use(query(this.get('query parser fn')));
+this._router.use(middleware.init(this));
+```
