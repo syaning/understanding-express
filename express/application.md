@@ -179,3 +179,92 @@ app.set = function(setting, val){
 - `disabled`：判断setting是否禁用
 - `enable`：启用setting
 - `disable`：禁用setting
+
+### 5. 默认配置`defaultConfiguration`
+
+在`app`执行`init`的时候，会调用`defaultConfiguration`方法，该方法主要是初始化一些配置选项。源码如下：
+
+```javascript
+/**
+ * Initialize application configuration.
+ *
+ * @api private
+ */
+
+app.defaultConfiguration = function(){
+  // default settings
+  this.enable('x-powered-by');
+  this.set('etag', 'weak');
+  var env = process.env.NODE_ENV || 'development';
+  this.set('env', env);
+  this.set('query parser', 'extended');
+  this.set('subdomain offset', 2);
+  this.set('trust proxy', false);
+
+  // trust proxy inherit back-compat
+  Object.defineProperty(this.settings, trustProxyDefaultSymbol, {
+    configurable: true,
+    value: true
+  });
+
+  debug('booting in %s mode', env);
+
+  this.on('mount', function onmount(parent) {
+    // inherit trust proxy
+    if (this.settings[trustProxyDefaultSymbol] === true
+      && typeof parent.settings['trust proxy fn'] === 'function') {
+      delete this.settings['trust proxy'];
+      delete this.settings['trust proxy fn'];
+    }
+
+    // inherit protos
+    this.request.__proto__ = parent.request;
+    this.response.__proto__ = parent.response;
+    this.engines.__proto__ = parent.engines;
+    this.settings.__proto__ = parent.settings;
+  });
+
+  // setup locals
+  this.locals = Object.create(null);
+
+  // top-most app is mounted at /
+  this.mountpath = '/';
+
+  // default locals
+  this.locals.settings = this.settings;
+
+  // default configuration
+  this.set('view', View);
+  this.set('views', resolve('views'));
+  this.set('jsonp callback name', 'callback');
+
+  if (env === 'production') {
+    this.enable('view cache');
+  }
+
+  Object.defineProperty(this, 'router', {
+    get: function() {
+      throw new Error('\'app.router\' is deprecated!\nPlease see the 3.x to 4.x migration guide for details on how to update your app.');
+    }
+  });
+};
+```
+
+这段代码主要做了以下几件事情：
+
+1. 设置了一些选项，主要包括：
+    - `x-powered-by`
+    - `etag`
+    - `env`
+    - `query parser`
+    - `subdomain offset`
+    - `trust proxy`
+    - `@@symbol:trust_proxy_default`
+    - `view`
+    - `views`
+    - `jsonp callback name`
+    - `view cache`
+2. 注册`mount`事件的回调函数
+3. 为`app`增加一些属性，主要包括：
+    - `locals`
+    - `mountpath`
