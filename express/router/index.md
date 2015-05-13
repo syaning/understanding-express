@@ -92,3 +92,5 @@ var router2 = new Router();
 	- `mergeParam`
 	- `strict`
 	- `stack`
+
+在`application.js`中的`lazyrouter`中，正是通过`new Router({...})`来生成了`app._router`。
