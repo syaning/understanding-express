@@ -268,3 +268,35 @@ app.defaultConfiguration = function(){
 3. 为`app`增加一些属性，主要包括：
     - `locals`
     - `mountpath`
+
+### 6. 初始化Router`lazyrouter`
+
+下面来看`lazyrouter`方法，该方法主要是初始化`Router`对象。该方法的源码如下：
+
+```javascript
+/**
+ * lazily adds the base router if it has not yet been added.
+ *
+ * We cannot add the base router in the defaultConfiguration because
+ * it reads app settings which might be set after that has run.
+ *
+ * @api private
+ */
+app.lazyrouter = function() {
+  if (!this._router) {
+    this._router = new Router({
+      caseSensitive: this.enabled('case sensitive routing'),
+      strict: this.enabled('strict routing')
+    });
+
+    this._router.use(query(this.get('query parser fn')));
+    this._router.use(middleware.init(this));
+  }
+};
+```
+
+通过查看模块依赖的相关代码，可以发现`Router`其实就是`./router/index.js`模块的导出对象。
+
+该方法之所叫做`lazyrouter`，是因为只有当需要`Router`的时候才初始化该对象。注释里也解释了，之所以不在`defaultConfiguration`里就把这一部分做掉，是因为该部分代码的执行需要依赖于一些设置选项，如`case sensitive routing`，`strict routing`和`query parser fn`，而这些设置可能在`defaultConfiguration`后更改。
+
+该方法执行后，`app`就有了一个`_router`属性，其值是一个`Router`对象。
