@@ -254,3 +254,120 @@ console.log(app._router);
 this._router.use(query(this.get('query parser fn')));
 this._router.use(middleware.init(this));
 ```
+
+### 4. `proto.param`
+
+该方法源码如下：
+
+```javascript
+/**
+ * Map the given param placeholder `name`(s) to the given callback.
+ *
+ * Parameter mapping is used to provide pre-conditions to routes
+ * which use normalized placeholders. For example a _:user_id_ parameter
+ * could automatically load a user's information from the database without
+ * any additional code,
+ *
+ * The callback uses the same signature as middleware, the only difference
+ * being that the value of the placeholder is passed, in this case the _id_
+ * of the user. Once the `next()` function is invoked, just like middleware
+ * it will continue on to execute the route, or subsequent parameter functions.
+ *
+ * Just like in middleware, you must either respond to the request or call next
+ * to avoid stalling the request.
+ *
+ *  app.param('user_id', function(req, res, next, id){
+ *    User.find(id, function(err, user){
+ *      if (err) {
+ *        return next(err);
+ *      } else if (!user) {
+ *        return next(new Error('failed to load user'));
+ *      }
+ *      req.user = user;
+ *      next();
+ *    });
+ *  });
+ *
+ * @param {String} name
+ * @param {Function} fn
+ * @return {app} for chaining
+ * @api public
+ */
+
+proto.param = function param(name, fn) {
+  // param logic
+  if (typeof name === 'function') {
+    deprecate('router.param(fn): Refactor to use path params');
+    this._params.push(name);
+    return;
+  }
+
+  // apply param functions
+  var params = this._params;
+  var len = params.length;
+  var ret;
+
+  if (name[0] === ':') {
+    deprecate('router.param(' + JSON.stringify(name) + ', fn): Use router.param(' + JSON.stringify(name.substr(1)) + ', fn) instead');
+    name = name.substr(1);
+  }
+
+  for (var i = 0; i < len; ++i) {
+    if (ret = params[i](name, fn)) {
+      fn = ret;
+    }
+  }
+
+  // ensure we end up with a
+  // middleware function
+  if ('function' != typeof fn) {
+    throw new Error('invalid param() call for ' + name + ', got ' + fn);
+  }
+
+  (this.params[name] = this.params[name] || []).push(fn);
+  return this;
+};
+```
+
+该方法的主要思路如下：
+
+- 如果第一个参数为函数，即调用方式为`param(fn)`。由于`app.param(callback)`已经在4.11.0版本中废弃，因此处理方式是将参数中的函数放在`this._params`中，然后返回
+- 如果`name`以冒号开头，则去掉冒号
+- 对于`name`，使用`this._params`中的每个函数对其进行依次处理。加入之前没有调用过`param(fn)`的话，相当于跳过此步
+- 如果`fn`参数不是函数，报错
+- 向`this.params[name]`数组中添加`fn`
+- 返回`this`从而进行链式调用
+
+总的来说，该方法其实是对`this.params`进行设置，而`this.params`则是如下的数据结构：
+
+```javascript
+{
+	foo: [],
+	bar: []
+}
+```
+
+例如，我们执行如下代码：
+
+```javascript
+var express = require('express');
+var app = express();
+
+app.param('user_id', function foo() {});
+app.param('user_id', function bar() {});
+app.param('user_name', function test() {});
+```
+
+其中`app.param`是`proto.param`的代理函数。输出结果为：
+
+```javascript
+{
+	user_id: [
+		[Function: foo],
+		[Function: bar]
+	],
+	user_name: [
+		[Function: test]
+	]
+}
+```
