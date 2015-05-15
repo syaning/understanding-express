@@ -17,6 +17,27 @@ var debug = require('debug')('express:router:layer');
 var hasOwnProperty = Object.prototype.hasOwnProperty;
 ```
 
+其中`path-to-regexp`模块的作用是将一个Express的表示路径的字符串转换成一个正则表达式。例如：
+
+```javascript
+var pathToRegexp = require('path-to-regexp');
+
+var keys = [];
+var re = pathToRegexp('/foo/:bar', keys);
+// re = /^\/foo\/([^\/]+?)\/?$/i
+// keys = [{
+//  name: 'bar',
+//  prefix: '/',
+//  delimiter: '/',
+//  optional: false,
+//  repeat: false,
+//  pattern: '[^\\/]+?'
+// }]
+
+re.exec('/foo/test');
+// => ['/foo/test', 'test']
+```
+
 # 2. 导出对象
 
 该模块的导出对象为`Layer`类，源码如下：
