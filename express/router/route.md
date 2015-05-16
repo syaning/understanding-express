@@ -46,3 +46,57 @@ function Route(path) {
 - `path`
 - `stack`
 - `methods`
+
+### 3. `Route.prototype.all`
+该方法为所有的HTTP请求方法添加一条路由，源码如下：
+
+```javascript
+/**
+ * Add a handler for all HTTP verbs to this route.
+ *
+ * Behaves just like middleware and can respond or call `next`
+ * to continue processing.
+ *
+ * You can use multiple `.all` call to add multiple handlers.
+ *
+ *   function check_something(req, res, next){
+ *     next();
+ *   };
+ *
+ *   function validate_user(req, res, next){
+ *     next();
+ *   };
+ *
+ *   route
+ *   .all(validate_user)
+ *   .all(check_something)
+ *   .get(function(req, res, next){
+ *     res.send('hello world');
+ *   });
+ *
+ * @param {function} handler
+ * @return {Route} for chaining
+ * @api public
+ */
+
+Route.prototype.all = function(){
+  var callbacks = utils.flatten([].slice.call(arguments));
+  callbacks.forEach(function(fn) {
+    if (typeof fn !== 'function') {
+      var type = {}.toString.call(fn);
+      var msg = 'Route.all() requires callback functions but got a ' + type;
+      throw new Error(msg);
+    }
+
+    var layer = Layer('/', {}, fn);
+    layer.method = undefined;
+
+    this.methods._all = true;
+    this.stack.push(layer);
+  }, this);
+
+  return this;
+};
+```
+
+
