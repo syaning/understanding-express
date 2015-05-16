@@ -23,7 +23,7 @@ var resolve = require('path').resolve;
 var slice = Array.prototype.slice;
 ```
 
-### 2. app及init
+### 2. `app`及`init`
 
 ```javascript
 var app = exports = module.exports = {};
@@ -59,7 +59,7 @@ var app = express();
 
 通过源码，可以得知，初始化的时候，主要是初始化`cache`，`settings`，`engines`，并调用`defaultConfiguration`函数进行默认配置。
 
-### 3. app.listen
+### 3. `app.listen`
 
 在不使用框架的时候，我们可以通过如下方式创建一个服务器：
 
@@ -113,7 +113,7 @@ var app = function(req, res, next) {
 
 正因为如此，在源码中会有`http.createServer(this)`。所以，所有的HTTP请求，事实上都是交给`app`函数去处理了。而`app`函数的执行则是又调用了它的`handle`方法。
 
-### 4. settings相关
+### 4. `settings`相关
 
 `app`的`settings`属性为一个对象字面量，因此以键值对的形式保存着一系列设置信息。首先来看`set`方法：
 
@@ -300,3 +300,83 @@ app.lazyrouter = function() {
 该方法之所叫做`lazyrouter`，是因为只有当需要`Router`的时候才初始化该对象。注释里也解释了，之所以不在`defaultConfiguration`里就把这一部分做掉，是因为该部分代码的执行需要依赖于一些设置选项，如`case sensitive routing`，`strict routing`和`query parser fn`，而这些设置可能在`defaultConfiguration`后更改。
 
 该方法执行后，`app`就有了一个`_router`属性，其值是一个`Router`对象。
+
+### 7. `app.route`
+
+该方法代码如下：
+
+```javascript
+/**
+ * Proxy to the app `Router#route()`
+ * Returns a new `Route` instance for the _path_.
+ *
+ * Routes are isolated middleware stacks for specific paths.
+ * See the Route api docs for details.
+ *
+ * @api public
+ */
+
+app.route = function(path){
+  this.lazyrouter();
+  return this._router.route(path);
+};
+```
+
+该方法只是`Router.route`的一个代理方法，详细实现可以参考`Router`的`route`方法。
+
+### 8. VERB方法
+
+```javascript
+/**
+ * Delegate `.VERB(...)` calls to `router.VERB(...)`.
+ */
+
+methods.forEach(function(method){
+  app[method] = function(path){
+    if ('get' == method && 1 == arguments.length) return this.set(path);
+
+    this.lazyrouter();
+
+    var route = this._router.route(path);
+    route[method].apply(route, slice.call(arguments, 1));
+    return this;
+  };
+});
+```
+
+这段代码主要是实现`app.get`、`app.post`等HTTP动作相关的方法。`methods`为一个依赖模块，其本身是一个数组，包含所有的HTTP方法。该方法的思路如下：
+
+- 如果`method`为`get`且只有一个参数，即`app.get(path)`，则此时该方法当作`getter`来使用，通过调用`this.set(path)`来获取相关配置
+- 执行`this.lazyrouter`
+- 创建`route`对象，并注册处理函数。举例来说，例如`app.get('/users', fn)`，则首先使用`/users`创建一个`route`对象，然后调用`route.get(fn)`
+- 返回`this`从而可以链式调用
+
+### 9. `app.all`
+
+该方法源码如下：
+
+```javascript
+/**
+ * Special-cased "all" method, applying the given route `path`,
+ * middleware, and callback to _every_ HTTP method.
+ *
+ * @param {String} path
+ * @param {Function} ...
+ * @return {app} for chaining
+ * @api public
+ */
+
+app.all = function(path){
+  this.lazyrouter();
+
+  var route = this._router.route(path);
+  var args = slice.call(arguments, 1);
+  methods.forEach(function(method){
+    route[method].apply(route, args);
+  });
+
+  return this;
+};
+```
+
+该方法会创建一个`route`，然后依次调用其相关的HTTP方法，举例来说，加入使用了`app.all('/users', fn)`，则首先使用`/users`来创建一个`route`对象，然后调用`route.get(fn)`、`route.post(fn)`……
