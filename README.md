@@ -7,5 +7,6 @@ Based on [express](https://github.com/strongloop/express) v4.12.3.
 	- [router](express/router/)
 		- [index.js](express/router/index.md)
 		- [layer.js](express/router/layer.md)
+		- [route.js](express/router/route.md)
     - [application.js](express/application.md)
     - [express.js](express/express.md)
