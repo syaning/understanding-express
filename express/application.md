@@ -491,3 +491,90 @@ app.path = function(){
 ```
 
 如果该应用是作为一个子应用，则返回父应用的路径加上挂载路径，否则返回空字符串。
+
+### 13. `app.use`
+
+该方法是`Router.use`的代理方法。源码如下：
+
+```javascript
+/**
+ * Proxy `Router#use()` to add middleware to the app router.
+ * See Router#use() documentation for details.
+ *
+ * If the _fn_ parameter is an express app, then it will be
+ * mounted at the _route_ specified.
+ *
+ * @api public
+ */
+
+app.use = function use(fn) {
+  var offset = 0;
+  var path = '/';
+
+  // default path to '/'
+  // disambiguate app.use([fn])
+  if (typeof fn !== 'function') {
+    var arg = fn;
+
+    while (Array.isArray(arg) && arg.length !== 0) {
+      arg = arg[0];
+    }
+
+    // first arg is the path
+    if (typeof arg !== 'function') {
+      offset = 1;
+      path = fn;
+    }
+  }
+
+  var fns = flatten(slice.call(arguments, offset));
+
+  if (fns.length === 0) {
+    throw new TypeError('app.use() requires middleware functions');
+  }
+
+  // setup router
+  this.lazyrouter();
+  var router = this._router;
+
+  fns.forEach(function (fn) {
+    // non-express app
+    if (!fn || !fn.handle || !fn.set) {
+      return router.use(path, fn);
+    }
+
+    debug('.use app under %s', path);
+    fn.mountpath = path;
+    fn.parent = this;
+
+    // restore .app property on req and res
+    router.use(path, function mounted_app(req, res, next) {
+      var orig = req.app;
+      fn.handle(req, res, function (err) {
+        req.__proto__ = orig.request;
+        res.__proto__ = orig.response;
+        next(err);
+      });
+    });
+
+    // mounted an app
+    fn.emit('mount', this);
+  }, this);
+
+  return this;
+};
+```
+
+该方法的思路如下：
+
+- 首先定义局部变量`offset`和`path`
+    - `offset`：表示从第几个函数开始为中间件函数，默认为0
+    - `path`：路径，默认为`/`
+- 当第一个参数不为函数的时候
+    - `while`循环中是针对第一个参数为数组的情况，即`[fn]`，`[[fn]]等情况，此时让局部变量`arg`为数组或多层数组的第一项
+    - 如果`arg`不为函数，则认为第一个参数为字符串，并将其赋值给`path`，同时设置`offset`为`1`
+- 获取参数中的`offset`下标开始的所有参数，并进行扁平化操作，赋值给`fns`，即代表所有的中间件函数
+- 如果没有中间件函数，则抛出错误
+- 对`fns`进行`forEach`操作，即对于每个中间件函数：
+    - 如果该函数没有`handle`或`set`属性，则认为其是一个普通的中间件，直接调用`router.use`即可
+    - 否则认为它是一个app，这里使用的是[duck typing](http://en.wikipedia.org/wiki/Duck_typing)。于是设置子应用的`mountpath`和`parent`，然后封装`fn`为`mounted_app`并调用`router.use`，然后发出`mount`事件。
