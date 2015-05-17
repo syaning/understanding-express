@@ -371,3 +371,39 @@ app.param('user_name', function test() {});
 	]
 }
 ```
+
+### 5. `proto.route`
+
+该方法的作用是创建一条新的路由，源码如下：
+
+```javascript
+/**
+ * Create a new Route for the given path.
+ *
+ * Each route contains a separate middleware stack and VERB handlers.
+ *
+ * See the Route api documentation for details on adding handlers
+ * and middleware to routes.
+ *
+ * @param {String} path
+ * @return {Route}
+ * @api public
+ */
+
+proto.route = function(path){
+  var route = new Route(path);
+
+  var layer = new Layer(path, {
+    sensitive: this.caseSensitive,
+    strict: this.strict,
+    end: true
+  }, route.dispatch.bind(route));
+
+  layer.route = route;
+
+  this.stack.push(layer);
+  return route;
+};
+```
+
+首先使用`path`创建一个`route`对象，然后使用`path`和`route.dispatch`创建一个`layer`对象，将`layer.route`属性值设置为`route`，并把`layer`放在`this.stack`数组中。
