@@ -463,3 +463,31 @@ app.param = function(name, fn){
 ```
 
 首先是执行`lazyrouter`。如果`name`是一个数组，则对于数组中的每一项，调用该方法。如果`name`是字符串，则调用`this._router.param`方法。
+
+### 12. `app.path`
+
+该方法用来获取应用的绝对路径，代码如下：
+
+```javascript
+/**
+ * Return the app's absolute pathname
+ * based on the parent(s) that have
+ * mounted it.
+ *
+ * For example if the application was
+ * mounted as "/admin", which itself
+ * was mounted as "/blog" then the
+ * return value would be "/blog/admin".
+ *
+ * @return {String}
+ * @api private
+ */
+
+app.path = function(){
+  return this.parent
+    ? this.parent.path() + this.mountpath
+    : '';
+};
+```
+
+如果该应用是作为一个子应用，则返回父应用的路径加上挂载路径，否则返回空字符串。
