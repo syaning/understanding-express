@@ -578,3 +578,49 @@ app.use = function use(fn) {
 - 对`fns`进行`forEach`操作，即对于每个中间件函数：
     - 如果该函数没有`handle`或`set`属性，则认为其是一个普通的中间件，直接调用`router.use`即可
     - 否则认为它是一个app，这里使用的是[duck typing](http://en.wikipedia.org/wiki/Duck_typing)。于是设置子应用的`mountpath`和`parent`，然后封装`fn`为`mounted_app`并调用`router.use`，然后发出`mount`事件。
+
+### 14. `app.handle`
+
+该方法主要是用于处理请求。首先`app`是一个函数，在`app.listen`中，可以注意到`app`事实上是`http.createServer`的回调函数，而`app`函数的内容，可以在`express.js`的`createApplication`方法中看到，就是调用了`app.handle`方法。因此，当一个请求到来的时候，就会调用`app.handle`。该方法的源码如下：
+
+```javascript
+/**
+ * Dispatch a req, res pair into the application. Starts pipeline processing.
+ *
+ * If no _done_ callback is provided, then default error handlers will respond
+ * in the event of an error bubbling through the stack.
+ *
+ * @api private
+ */
+
+app.handle = function(req, res, done) {
+  var router = this._router;
+
+  // final handler
+  done = done || finalhandler(req, res, {
+    env: this.get('env'),
+    onerror: logerror.bind(this)
+  });
+
+  // no routes
+  if (!router) {
+    debug('no routes defined on app');
+    done();
+    return;
+  }
+
+  router.handle(req, res, done);
+};
+```
+
+首先，在使用`http.createServer`的时候，其回调函数接收的是两个参数，即`req`和`res`。
+
+因此，当`app`不是作为子应用的时候，参数中的`done`为`undefined`，因此需要调用`finalhandler`。而当`app`作为子应用存在时，参数`done`不为空，因此直接使用。
+
+> `finalhandler`是一个依赖模块。具体可以参考[https://github.com/pillarjs/finalhandler](https://github.com/pillarjs/finalhandler).
+
+当`this._router`不存在的时候，直接调用`done`，否则调用`router.handle`方法。
+
+### 15. `app.render`
+
+TBD
