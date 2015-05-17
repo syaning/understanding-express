@@ -429,3 +429,37 @@ app.engine = function(ext, fn){
 ```
 
 `ext`是文件后缀，`fn`是相应的模板引擎函数。如果`fn`不是函数，则报错。如果`ext`不是以点开始，则在其前面加上一个点。然后在`this.engines`中进行设置。
+
+### 11. `app.param`
+
+该方法是`Router.param`的代理方法，源码如下：
+
+```javascript
+/**
+ * Proxy to `Router#param()` with one added api feature. The _name_ parameter
+ * can be an array of names.
+ *
+ * See the Router#param() docs for more details.
+ *
+ * @param {String|Array} name
+ * @param {Function} fn
+ * @return {app} for chaining
+ * @api public
+ */
+
+app.param = function(name, fn){
+  this.lazyrouter();
+
+  if (Array.isArray(name)) {
+    name.forEach(function(key) {
+      this.param(key, fn);
+    }, this);
+    return this;
+  }
+
+  this._router.param(name, fn);
+  return this;
+};
+```
+
+首先是执行`lazyrouter`。如果`name`是一个数组，则对于数组中的每一项，调用该方法。如果`name`是字符串，则调用`this._router.param`方法。
