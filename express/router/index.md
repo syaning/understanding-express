@@ -407,3 +407,20 @@ proto.route = function(path){
 ```
 
 首先使用`path`创建一个`route`对象，然后使用`path`和`route.dispatch`创建一个`layer`对象，将`layer.route`属性值设置为`route`，并把`layer`放在`this.stack`数组中。
+
+### 6. VERB方法
+
+源码如下：
+
+```javascript
+// create Router#VERB functions
+methods.concat('all').forEach(function(method){
+  proto[method] = function(path){
+    var route = this.route(path)
+    route[method].apply(route, slice.call(arguments, 1));
+    return this;
+  };
+});
+```
+
+其实就是使用参数中的`path`进行`this.route(path)`调用，创建一个`route`，然后调用`route`的VERB方法。
