@@ -380,3 +380,52 @@ app.all = function(path){
 ```
 
 该方法会创建一个`route`，然后依次调用其相关的HTTP方法，举例来说，加入使用了`app.all('/users', fn)`，则首先使用`/users`来创建一个`route`对象，然后调用`route.get(fn)`、`route.post(fn)`……
+
+### 10. `app.engine`
+
+该方法主要是注册模板引擎，源码如下：
+
+```javascript
+/**
+ * Register the given template engine callback `fn`
+ * as `ext`.
+ *
+ * By default will `require()` the engine based on the
+ * file extension. For example if you try to render
+ * a "foo.jade" file Express will invoke the following internally:
+ *
+ *     app.engine('jade', require('jade').__express);
+ *
+ * For engines that do not provide `.__express` out of the box,
+ * or if you wish to "map" a different extension to the template engine
+ * you may use this method. For example mapping the EJS template engine to
+ * ".html" files:
+ *
+ *     app.engine('html', require('ejs').renderFile);
+ *
+ * In this case EJS provides a `.renderFile()` method with
+ * the same signature that Express expects: `(path, options, callback)`,
+ * though note that it aliases this method as `ejs.__express` internally
+ * so if you're using ".ejs" extensions you dont need to do anything.
+ *
+ * Some template engines do not follow this convention, the
+ * [Consolidate.js](https://github.com/tj/consolidate.js)
+ * library was created to map all of node's popular template
+ * engines to follow this convention, thus allowing them to
+ * work seamlessly within Express.
+ *
+ * @param {String} ext
+ * @param {Function} fn
+ * @return {app} for chaining
+ * @api public
+ */
+
+app.engine = function(ext, fn){
+  if ('function' != typeof fn) throw new Error('callback function required');
+  if ('.' != ext[0]) ext = '.' + ext;
+  this.engines[ext] = fn;
+  return this;
+};
+```
+
+`ext`是文件后缀，`fn`是相应的模板引擎函数。如果`fn`不是函数，则报错。如果`ext`不是以点开始，则在其前面加上一个点。然后在`this.engines`中进行设置。
