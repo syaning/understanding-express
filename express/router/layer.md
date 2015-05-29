@@ -75,4 +75,5 @@ function Layer(path, options, fn) {
 - `name`
 - `params`
 - `path`
+- `regexp`
 - `keys`

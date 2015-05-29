@@ -190,7 +190,7 @@ var app = express();
 app.use(function foo() {});
 app.use('/users', function bar() {}, function test() {});
 
-console.log(app._router);
+console.log(app._router.stack);
 ```
 
 输出结果为：
