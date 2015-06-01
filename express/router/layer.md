@@ -157,3 +157,44 @@ Layer.prototype.match = function match(path) {
 - 如果`this.regexp.fast_slash`为`true`，则设置`this.params`为空对象，设置`this.path`为空字符串，返回`true`
 - 执行`this.regexp.exec(path)`判断是否匹配，如果不匹配，则设置`this.params`和`this.path`为`undefined`，返回`false`
 - 如果匹配，设置`this.path`为`m[0]`，并对`this.params`进行赋值，然后返回`true`
+
+### 4. `handle_request`
+
+该方法用来处理HTTP请求，源码如下：
+
+```javascript
+/**
+ * Handle the request for the layer.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @param {function} next
+ * @api private
+ */
+
+Layer.prototype.handle_request = function handle(req, res, next) {
+  var fn = this.handle;
+
+  if (fn.length > 3) {
+    // not a standard request handler
+    return next();
+  }
+
+  try {
+    fn(req, res, next);
+  } catch (err) {
+    next(err);
+  }
+};
+```
+
+如果处理函数的参数个数大于3，则认为不是一个标准的处理函数，因此不执行，而是直接执行`next()`；否则执行`fn`。
+
+例如下面的例子，处理函数就不会执行：
+
+```javascript
+app.use('/', function(req, res, next, foo) {
+  console.log('hello world');
+  next();
+});
+```
