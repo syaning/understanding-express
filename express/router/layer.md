@@ -198,3 +198,13 @@ app.use('/', function(req, res, next, foo) {
   next();
 });
 ```
+
+对于`Router`中存放的`Layer`，如果是普通中间件的话，调用的就是使用`app.use()`时注册的处理函数；如果是路由中间件的话，调用的是`route.dispatch()`方法，相关处理函数的注册在`Router`的`route()`方法中，代码如下：
+
+```javascript
+var layer = new Layer(path, {
+  sensitive: this.caseSensitive,
+  strict: this.strict,
+  end: true
+}, route.dispatch.bind(route));
+```
