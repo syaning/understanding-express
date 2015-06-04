@@ -158,7 +158,7 @@ Layer.prototype.match = function match(path) {
 - 执行`this.regexp.exec(path)`判断是否匹配，如果不匹配，则设置`this.params`和`this.path`为`undefined`，返回`false`
 - 如果匹配，设置`this.path`为`m[0]`，并对`this.params`进行赋值，然后返回`true`
 
-### 4. `handle_request`
+### 4. `handle_request`和`handle_error`
 
 该方法用来处理HTTP请求，源码如下：
 
@@ -208,3 +208,5 @@ var layer = new Layer(path, {
   end: true
 }, route.dispatch.bind(route));
 ```
+
+`handle_error`方法与`handle_request`的逻辑基本类似，不做赘述。
