@@ -424,3 +424,109 @@ methods.concat('all').forEach(function(method){
 ```
 
 其实就是使用参数中的`path`进行`this.route(path)`调用，创建一个`route`，然后调用`route`的VERB方法。
+
+### 7. `proto.handle`
+
+该方法主要用来处理接收到的HTTP请求，会被`app.handle`调用。该方法的源码较长，下面是源码的主要结构：
+
+```javascript
+proto.handle = function(req, res, done) {
+  // ... ...
+
+  next();
+
+  function next(err) {
+    // ... ...
+  }
+
+  function trim_prefix(layer, layerError, layerPath, path) {
+    // ... ...
+  }
+}
+```
+
+因此，该方法主要是调用了`next()`，下面来看`next`函数。由于`next`的源码依然很长且比较繁琐，因此主要看比较关键的代码。在调用`next`之前，首先定义了`idx`和`stack`这两个变量，分别表示当前中间件的下表和中间件列表。
+
+```javascript
+// no more matching layers
+if (idx >= stack.length) {
+  setImmediate(done, layerError);
+  return;
+}
+```
+
+这段代码表明当遍历完了所有的中间件时，执行`done()`。如果遍历未结束，执行`while`循环，代码如下：
+
+```javascript
+while (match !== true && idx < stack.length) {
+  layer = stack[idx++];
+  match = matchLayer(layer, path);
+  route = layer.route;
+
+  if (typeof match !== 'boolean') {
+    // hold on to layerError
+    layerError = layerError || match;
+  }
+
+  if (match !== true) {
+    continue;
+  }
+
+  if (!route) {
+    // process non-route handlers normally
+    continue;
+  }
+
+  if (layerError) {
+    // routes do not match with a pending error
+    match = false;
+    continue;
+  }
+
+  var method = req.method;
+  var has_method = route._handles_method(method);
+
+  // build up automatic options response
+  if (!has_method && method === 'OPTIONS') {
+    appendMethods(options, route._options());
+  }
+
+  // don't even bother matching route
+  if (!has_method && method !== 'HEAD') {
+    match = false;
+    continue;
+  }
+}
+```
+
+在这里，`layer`表示当前的中间件，`match`表示当前的中间件与当前路径是否匹配。其中`matchLayer(layer, path)`其实是调用了`layer.match(path)`。
+
+`while`循环的逻辑如下：
+
+- 如果`match`不为`true`，即该中间件与路径不匹配，则执行continue，对下一个中间件进行判断
+- 如果`match`为`true`但是`route`不存在，则说明是一个非路由中间件，执行continue，但此时由于`match`不再满足循环条件，因此会跳出循环
+- 如果`match`为`true`且`route`存在，则说明是一个路由中间件，则将继续对HTTP请求方法做一些处理，首先判断该路由是否能够处理该HTTP方法，即`has_method`
+    - 如果`has_method`为`false`且HTTP方法为`OPTIONS`，则执行`appendMethods(options, route._options())`
+    - 如果`has_method`为`false`且HTTP方法不为`HEAD`，则设置`match`为`false`，也就是说，该路由无法处理该请求，此时由于`match`依然满足循环条件，因此会对下一个中间件进行判断
+    - 如果`has_method`为`true`，则由于`match`不再满足循环条件，因此会跳出循环
+
+总的来说，该循环的主要作用就是从当前下标开始找出第一个能够处理该HTTP请求的中间件。如果是非路由中间件，则只要匹配路径即可；如果是路由中间件，则需要同时匹配路径和HTTP请求方法。
+
+在`while`之后，如果`match`不为`true`，则说明已经遍历完了所有的中间件，因此直接执行`done()`；否则调用`self.process_params`，即进行参数的预处理，并调用回调函数。代码如下：
+
+```javascript
+// this should be done for the layer
+self.process_params(layer, paramcalled, req, res, function (err) {
+  if (err) {
+    return next(layerError || err);
+  }
+
+  if (route) {
+    return layer.handle_request(req, res, next);
+  }
+
+  trim_prefix(layer, layerError, layerPath, path);
+});
+```
+
+在回调函数中，如果`route`存在，即对于路由中间件，调用`layer.handle_request(req, res, next)`，如果不是路由中间件，则会调用`trim_prefix(layer, layerError, layerPath, path)`，对路径进行处理后，才调用`layer.handle_request(req, res, next)`。
