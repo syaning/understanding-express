@@ -575,3 +575,80 @@ proto.process_params = function(layer, called, req, res, done) {
   param();
 };
 ```
+
+其中，变量`params`形式示例如下：
+
+```javascript
+{
+  user_id: [
+    [Function: foo],
+    [Function: bar]
+  ],
+  user_name: [
+    [Function: test]
+  ]
+}
+```
+
+变量`keys`形式示例如下：
+
+```javascript
+[{
+  name: 'user_id',
+  // ... ...
+}, {
+  name: 'user_name',
+  // ... ...
+}]
+```
+
+也就是所，`keys`表示的是路径中应当接收的参数，`params`存放的是所有的参数预处理函数，而路径中实际接收到的参数保存在`req.params`中。
+
+在该函数的开始，先对`keys`进行判断，如果它不存在或者为空数组，则直接执行`done()`，否则，会执行`param()`。`param`函数的源码如下：
+
+```javascript
+// process params in order
+// param callbacks can be async
+function param(err) {
+  if (err) {
+    return done(err);
+  }
+
+  if (i >= keys.length ) {
+    return done();
+  }
+
+  paramIndex = 0;
+  key = keys[i++];
+
+  if (!key) {
+    return done();
+  }
+
+  name = key.name;
+  paramVal = req.params[name];
+  paramCallbacks = params[name];
+  paramCalled = called[name];
+
+  if (paramVal === undefined || !paramCallbacks) {
+    return param();
+  }
+
+  // param previously called with same value or error occurred
+  if (paramCalled && (paramCalled.error || paramCalled.match === paramVal)) {
+    // restore value
+    req.params[name] = paramCalled.value;
+
+    // next param
+    return param(paramCalled.error);
+  }
+
+  called[name] = paramCalled = {
+    error: null,
+    match: paramVal,
+    value: paramVal
+  };
+
+  paramCallback();
+}
+```
