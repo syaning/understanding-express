@@ -530,3 +530,48 @@ self.process_params(layer, paramcalled, req, res, function (err) {
 ```
 
 在回调函数中，如果`route`存在，即对于路由中间件，调用`layer.handle_request(req, res, next)`，如果不是路由中间件，则会调用`trim_prefix(layer, layerError, layerPath, path)`，对路径进行处理后，才调用`layer.handle_request(req, res, next)`。
+
+### 8. `proto.process_params`
+
+该方法主要是对参数进行预处理，即在接收到HTTP请求后，在对请求处理之前，对请求路径中的参数进行一定的预处理。该方法会在`proto.handle`中被调用。该方法源码主要结构如下：
+
+```javascript
+/**
+ * Process any parameters for the layer.
+ *
+ * @api private
+ */
+
+proto.process_params = function(layer, called, req, res, done) {
+  var params = this.params;
+
+  // captured parameters from the layer, keys and values
+  var keys = layer.keys;
+
+  // fast track
+  if (!keys || keys.length === 0) {
+    return done();
+  }
+
+  var i = 0;
+  var name;
+  var paramIndex = 0;
+  var key;
+  var paramVal;
+  var paramCallbacks;
+  var paramCalled;
+
+  // process params in order
+  // param callbacks can be async
+  function param(err) {
+    // ... ...
+  }
+
+  // single param callbacks
+  function paramCallback(err) {
+    // ... ...
+  }
+
+  param();
+};
+```
