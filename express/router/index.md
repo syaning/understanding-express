@@ -614,7 +614,7 @@ function param(err) {
     return done(err);
   }
 
-  if (i >= keys.length ) {
+  if (i >= keys.length) {
     return done();
   }
 
@@ -652,3 +652,42 @@ function param(err) {
   paramCallback();
 }
 ```
+
+其中，`i`表示的是当前处理的参数在`keys`中的下标，因此当`i >= keys.length`的时候，说明所有的参数已经被处理，因此执行`done()`。`paramIndex`表示的是当前参数对应的预处理函数的在处理函数列表中的下标，每次执行`param()`的时候，都将`paramIndex`重置为`0`。`paramVal`表示的是参数的实际值，例如路径为`/user/:user_name`，则当访问`/user/alex`的时候，`paramVal`即为`alex`。`paramCallbacks`为预处理函数列表。`paramCalled`为结果缓存，由于函数的预处理是在每个`Layer`处理前执行，而不是在整个请求的处理前，因此可能两个或多个`Layer`会有同样的参数，此时只需要对参数进行一次预处理就可以了，并将结果缓存起来，这样，当再次需要对相同的参数进行预处理的话只需要直接读取结果就可以了。
+
+如果`paramCalled`不为空，则说明已经处理了，因为在预处理的过程中可能会更改参数的值，因此需要执行`req.params[name] = paramCalled.value`更新参数值，然后对下一个参数进行处理。否则的话对缓存`called`进行设置，并执行`paramCallback()`，该函数用来依次执行当前参数所对应的预处理函数。`paramCallback`函数的源码如下：
+
+```javascript
+// single param callbacks
+function paramCallback(err) {
+  var fn = paramCallbacks[paramIndex++];
+
+  // store updated value
+  paramCalled.value = req.params[key.name];
+
+  if (err) {
+    // store error
+    paramCalled.error = err;
+    param(err);
+    return;
+  }
+
+  if (!fn) return param();
+
+  try {
+    fn(req, res, paramCallback, paramVal, key.name);
+  } catch (e) {
+    paramCallback(e);
+  }
+}
+```
+
+其中，`fn`表示的是当前的预处理函数。首先是更新`paramCalled.value`，因为在之前的预处理函数执行过程中可能会更改参数的值。然后如果有错误，则执行`param(err)`；如果`fn`不存在，则执行`param()`，对下一个参数进行预处理。否则，执行`fn(req, res, paramCallback, paramVal, key.name)`，即执行当前的预处理函数，并将`paramCallback`作为其第三个参数。例如如下的例子：
+
+```javascript
+app.param('user_name', function foo(req, res, next){
+  // ... ...
+});
+```
+
+在执行的时候，`fn`表示的就是`foo`，而`next`事实上则是`paramCallback`。
