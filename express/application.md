@@ -623,4 +623,97 @@ app.handle = function(req, res, done) {
 
 ### 15. `app.render`
 
-TBD
+该方法主要是进行视图渲染，源码如下：
+
+```javascript
+/**
+ * Render the given view `name` name with `options`
+ * and a callback accepting an error and the
+ * rendered template string.
+ *
+ * Example:
+ *
+ *    app.render('email', { name: 'Tobi' }, function(err, html){
+ *      // ...
+ *    })
+ *
+ * @param {String} name
+ * @param {String|Function} options or fn
+ * @param {Function} fn
+ * @api public
+ */
+
+app.render = function(name, options, fn){
+  var opts = {};
+  var cache = this.cache;
+  var engines = this.engines;
+  var view;
+
+  // support callback function as second arg
+  if ('function' == typeof options) {
+    fn = options, options = {};
+  }
+
+  // merge app.locals
+  merge(opts, this.locals);
+
+  // merge options._locals
+  if (options._locals) {
+    merge(opts, options._locals);
+  }
+
+  // merge options
+  merge(opts, options);
+
+  // set .cache unless explicitly provided
+  opts.cache = null == opts.cache
+    ? this.enabled('view cache')
+    : opts.cache;
+
+  // primed cache
+  if (opts.cache) view = cache[name];
+
+  // view
+  if (!view) {
+    view = new (this.get('view'))(name, {
+      defaultEngine: this.get('view engine'),
+      root: this.get('views'),
+      engines: engines
+    });
+
+    if (!view.path) {
+      var dirs = Array.isArray(view.root) && view.root.length > 1
+        ? 'directories "' + view.root.slice(0, -1).join('", "') + '" or "' + view.root[view.root.length - 1] + '"'
+        : 'directory "' + view.root + '"'
+      var err = new Error('Failed to lookup view "' + name + '" in views ' + dirs);
+      err.view = view;
+      return fn(err);
+    }
+
+    // prime the cache
+    if (opts.cache) cache[name] = view;
+  }
+
+  // render
+  try {
+    view.render(opts, fn);
+  } catch (err) {
+    fn(err);
+  }
+};
+```
+三个参数分别为：
+
+- `name`：视图名字
+- `options`：参数
+- `fn`：回调函数
+
+思路如下：
+
+- 如果第二个参数为函数，则认为调用方式为`app.render(name, fn)`
+- 将`this.locals`中的参数合并到`opts`中
+- 如果`options._locals`(即`res.locals`)不为空，则将其合并到`opts`中
+- 将`options`合并到`opts`中
+- 如果缓存中已有该试图，则取出
+- 如果视图不存在，则新建视图；然后如果允许缓存，则将其加入缓存
+- 调用`view.render(opts, fn)`，渲染视图
