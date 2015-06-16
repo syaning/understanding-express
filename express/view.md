@@ -166,3 +166,22 @@ function tryStat(path) {
 ```
 
 该方法接收两个参数，`dir`和`file`，分别表示目录名和文件名。例如目录名为`foo`，文件名为`bar.html`，则会首先查找`foo/bar.html`是否存在，如果存在，则返回该路径；否则查找`foo/bar/index.html`是否存在，如果存在，返回该路径；否则路径解析失败，默认返回`undefined`。
+
+### 5. `View.prototype.render`
+
+该方法用于渲染模板，其实就是调用了模板引擎函数。源码如下：
+
+```javascript
+/**
+ * Render with the given `options` and callback `fn(err, str)`.
+ *
+ * @param {Object} options
+ * @param {Function} fn
+ * @api private
+ */
+
+View.prototype.render = function render(options, fn) {
+  debug('render "%s"', this.path);
+  this.engine(this.path, options, fn);
+};
+```
