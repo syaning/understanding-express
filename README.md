@@ -10,4 +10,4 @@ Based on [express](https://github.com/strongloop/express) v4.12.3.
 		- [route.js](express/router/route.md)
     - [application.js](express/application.md)
     - [express.js](express/express.md)
-    - [view.js](express/view.js)
+    - [view.js](express/view.md)
